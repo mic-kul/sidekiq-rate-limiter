@@ -6,6 +6,7 @@ require 'redis_rate_limiter'
 module Sidekiq::RateLimiter
   DEFAULT_LIMIT_NAME =
     'sidekiq-rate-limit'.freeze unless defined?(DEFAULT_LIMIT_NAME)
+  WORKER_NAME = 'limit-worker'.freeze
 
   class Fetch < Sidekiq::BasicFetch
     def retrieve_work
@@ -33,11 +34,11 @@ module Sidekiq::RateLimiter
 
       Sidekiq.redis do |conn|
         lim = Limit.new(conn, options)
-        if lim.exceeded?(klass)
+        if lim.exceeded?(WORKER_NAME)
           conn.lpush("queue:#{work.queue_name}", work.respond_to?(:message) ? work.message : work.job)
           nil
         else
-          lim.add(klass)
+          lim.add(WORKER_NAME)
           work
         end
       end
